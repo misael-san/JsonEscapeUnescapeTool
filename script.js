@@ -11,11 +11,64 @@ const clearBtn = document.getElementById('clear-btn'); // New clear button
 // --- FUNCTION DEFINITIONS ---
 
 /**
+ * Custom function to escape a string according to strict JSON rules, matching the reference tool.
+ * This iterates through each character in the input string and replaces special characters
+ * with their escaped equivalents. It also escapes forward slashes (/) and non-ASCII characters
+ * to Unicode escapes (\uXXXX) for compatibility and safety, which JSON.stringify does not do by default.
+ * The output is the escaped content without outer quotes, to match the reference.
+ * @param {string} inputString - The raw string to escape.
+ * @returns {string} - The escaped string.
+ */
+function escapeJsonString(inputString) {
+    let escapedResult = '';
+    for (let index = 0; index < inputString.length; index++) {
+        let currentChar = inputString[index];
+        switch (currentChar) {
+            case '"':
+                escapedResult += '\\"';
+                break;
+            case '\\':
+                escapedResult += '\\\\';
+                break;
+            case '/':
+                escapedResult += '\\/';
+                break;
+            case '\b':
+                escapedResult += '\\b';
+                break;
+            case '\f':
+                escapedResult += '\\f';
+                break;
+            case '\n':
+                escapedResult += '\\n';
+                break;
+            case '\r':
+                escapedResult += '\\r';
+                break;
+            case '\t':
+                escapedResult += '\\t';
+                break;
+            default:
+                let charCode = currentChar.charCodeAt(0);
+                if (charCode < 32 || charCode > 126) {
+                    // Convert non-ASCII or control characters to \uXXXX format
+                    let hexCode = charCode.toString(16).toUpperCase();
+                    escapedResult += '\\u' + '0000'.substring(hexCode.length) + hexCode;
+                } else {
+                    escapedResult += currentChar;
+                }
+                break;
+        }
+    }
+    return escapedResult;
+}
+
+/**
  * Function to "escape" a string.
  * It takes the text from the input area, treats it as a single string,
- * and applies JSON.stringify(). This wraps the string in double quotes
- * and escapes internal characters like quotes, newlines, etc.
- * The result is a string that can be safely embedded as a value in another JSON.
+ * and applies the custom escapeJsonString function. This escapes internal characters like quotes, newlines, etc.,
+ * including extra escapes for / and non-ASCII to match the reference tool.
+ * The result is a string that can be safely embedded as a value in another JSON, without outer quotes.
  */
 function handleEscape() {
     const rawString = jsonInput.value;
@@ -24,7 +77,7 @@ function handleEscape() {
         return;
     }
     try {
-        const escapedString = JSON.stringify(rawString);
+        const escapedString = escapeJsonString(rawString);
         jsonOutput.value = escapedString;
     } catch (error) {
         jsonOutput.value = `Error during escape: ${error.message}`;
@@ -33,8 +86,8 @@ function handleEscape() {
 
 /**
  * Function to "unescape" a string.
- * It takes a string that has been previously escaped (a JSON string literal)
- * and uses JSON.parse() to return it to its original form.
+ * It takes a string that has been previously escaped (a JSON string literal without outer quotes)
+ * and uses JSON.parse() after wrapping it in quotes to return it to its original form.
  */
 function handleUnescape() {
     const escapedString = jsonInput.value;
@@ -43,7 +96,8 @@ function handleUnescape() {
         return;
     }
     try {
-        const unescapedString = JSON.parse(escapedString);
+        // Wrap the escaped content in quotes to make it a valid JSON string for parsing
+        const unescapedString = JSON.parse(`"${escapedString}"`);
         jsonOutput.value = unescapedString;
     } catch (error) {
         jsonOutput.value = `ERROR: Invalid string to unescape. Please check the format.\n\nDetails: ${error.message}`;
